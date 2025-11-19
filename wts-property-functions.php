@@ -2,7 +2,7 @@
 /**
  * Plugin Name: Property Functions
  * Description: Various MLS Property Functions.
- * Version: 1.3.1
+ * Version: 1.3.2
  * Author: Thomas Rainer
  * Author URI: https://wtsks.com
  * Plugin URI: https://github.com/wts-thomas/wts-property-functions

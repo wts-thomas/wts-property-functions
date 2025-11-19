@@ -5,7 +5,7 @@ if ( ! defined( 'ABSPATH' ) ) exit;
  * Builder Sync Tool
  *
  * Tools → Builder Sync Tool
- * Processes 5 properties per run and fills es_property_builder-selection
+ * Processes 10 properties per run and fills es_property_builder-selection
  * when a builder text value matches any Builder Title or Alt Title
  * (case-insensitive). Each property is only processed once.
  */
@@ -30,7 +30,7 @@ function wts_render_builder_sync_tool() {
         <h1>Builder Sync Tool</h1>
 
         <p>
-            Click below to process <strong>5 Properties at a time</strong>.
+            Click below to process <strong>10 Properties at a time</strong>.
             This fills the <code>builder-selection</code> field when the MLS-fed
             <code>builder</code> value (or any builder-related text) matches a
             Builder Title or Alternate Title (case-insensitive). Each property is
@@ -41,7 +41,7 @@ function wts_render_builder_sync_tool() {
             <?php wp_nonce_field( 'wts_run_builder_sync', 'wts_builder_sync_nonce' ); ?>
             <p>
                 <input type="submit" class="button button-primary"
-                       value="Process Next 5 Properties">
+                       value="Process Next 10 Properties">
             </p>
         </form>
 
@@ -56,7 +56,7 @@ function wts_render_builder_sync_tool() {
 }
 
 /**
- * Batch processor: Updates 5 properties per run
+ * Batch processor: Updates 10 properties per run
  */
 function wts_run_builder_sync_batch() {
 
@@ -101,13 +101,13 @@ function wts_run_builder_sync_batch() {
         }
     }
 
-    // Find up to 5 properties that:
+    // Find up to 10 properties that:
     //  - have builder-selection unset/empty/__none__
     //  - and have NOT yet been processed by this tool
     $q = new WP_Query( array(
         'post_type'      => 'properties',
         'post_status'    => 'publish',
-        'posts_per_page' => 5, // CHANGED from 10 to 5
+        'posts_per_page' => 10,
         'meta_query'     => array(
             'relation' => 'AND',
             array(
