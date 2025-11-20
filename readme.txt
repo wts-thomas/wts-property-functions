@@ -1,5 +1,8 @@
 == Changelog ==
 
+1.3.6 – 11-20-2025
+	•	Optimized sync snippet and set number back to ten per batch.
+
 1.3.5 – 11-20-2025
 	•	Reduced number of properties processed from five to two in hopes to mitigate server timeout issues.
 

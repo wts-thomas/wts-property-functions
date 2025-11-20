@@ -24,7 +24,7 @@ function wts_render_community_sync_tool() {
         <h1>Community Sync Tool</h1>
 
         <p>
-            Click below to process <strong>2 Properties at a time</strong>.
+            Click below to process <strong>10 Properties at a time</strong>.
             This fills the <code>community-selection</code> field when the
             subdivision matches any Community Title or Alternate Title
             (case-insensitive). Each property is only processed once.
@@ -34,7 +34,7 @@ function wts_render_community_sync_tool() {
             <?php wp_nonce_field( 'wts_run_sync', 'wts_sync_nonce' ); ?>
             <p>
                 <input type="submit" class="button button-primary"
-                       value="Process Next 2 Properties">
+                       value="Process Next 10 Properties">
             </p>
         </form>
 
@@ -63,73 +63,69 @@ function wts_run_community_sync_batch() {
         return strtoupper( $value );
     };
 
-    // Build map: NORMALIZED label (title or alt) → canonical Community title
-    $label_map = [];
+    /**
+     * Build (or reuse) map: NORMALIZED label (title or alt) → canonical Community title
+     * Cached in a transient so we don't hit the DB for Communities every click.
+     */
+    $label_map = get_transient( 'wts_community_label_map' );
+    if ( ! is_array( $label_map ) ) {
+        $label_map = array();
 
-    $communities = new WP_Query([
-        'post_type'      => 'post_communities',
-        'post_status'    => 'publish',
-        'posts_per_page' => -1,
-        'fields'         => 'ids',
-        'no_found_rows'  => true,
-    ]);
+        $communities = get_posts( array(
+            'post_type'      => 'post_communities',
+            'post_status'    => 'publish',
+            'posts_per_page' => -1,
+            'fields'         => 'ids',
+            'no_found_rows'  => true,
+        ) );
 
-    foreach ( (array) $communities->posts as $cid ) {
-        $title = get_the_title( $cid );
-        if ( ! $title ) continue;
+        foreach ( (array) $communities as $cid ) {
+            $title = get_the_title( $cid );
+            if ( ! $title ) continue;
 
-        $canonical = $title;
+            $canonical = $title;
 
-        // Canonical title key
-        $canon_key = $normalize( $title );
-        if ( $canon_key !== '' ) {
-            $label_map[ $canon_key ] = $canonical;
-        }
+            // Canonical title key
+            $canon_key = $normalize( $title );
+            if ( $canon_key !== '' ) {
+                $label_map[ $canon_key ] = $canonical;
+            }
 
-        // Alternate title key
-        $alt = get_post_meta( $cid, 'cf_legalname_alternate_title', true );
-        if ( $alt && $alt !== $title ) {
-            $alt_key = $normalize( $alt );
-            if ( $alt_key !== '' ) {
-                $label_map[ $alt_key ] = $canonical;
+            // Alternate title key
+            $alt = get_post_meta( $cid, 'cf_legalname_alternate_title', true );
+            if ( $alt && $alt !== $title ) {
+                $alt_key = $normalize( $alt );
+                if ( $alt_key !== '' ) {
+                    $label_map[ $alt_key ] = $canonical;
+                }
             }
         }
+
+        // Cache for 1 hour (adjust as needed)
+        set_transient( 'wts_community_label_map', $label_map, HOUR_IN_SECONDS );
     }
 
-    // Find properties where:
-    //  - es_property_community-selection is empty/__none__/missing
-    //  - AND we have NOT already processed them (no wts_community_sync_done flag)
-    $q = new WP_Query([
-        'post_type'      => 'properties',
-        'post_status'    => 'publish',
-        'posts_per_page' => 2,
-        'meta_query'     => [
-            'relation' => 'AND',
-            // Community-selection is unset/empty
-            [
-                'relation' => 'OR',
-                [
-                    'key'     => 'es_property_community-selection',
-                    'value'   => '',
-                    'compare' => '='
-                ],
-                [
-                    'key'     => 'es_property_community-selection',
-                    'value'   => '__none__',
-                    'compare' => '='
-                ],
-                [
-                    'key'     => 'es_property_community-selection',
-                    'compare' => 'NOT EXISTS'
-                ],
-            ],
-            // Not yet processed by the sync tool
-            [
+    /**
+     * Find a very small batch of Properties that:
+     *  - have NOT yet been processed by this tool (no wts_community_sync_done meta)
+     * We no longer filter by community-selection in the query itself to keep
+     * the SQL simple; we handle that in PHP per-property.
+     */
+    $q = new WP_Query( array(
+        'post_type'              => 'properties',
+        'post_status'            => 'publish',
+        'posts_per_page'         => 10,
+        'fields'                 => 'ids',          // only need IDs
+        'no_found_rows'          => true,          // don't calc total rows
+        'update_post_meta_cache' => false,         // don't pre-cache meta
+        'update_post_term_cache' => false,         // no terms needed
+        'meta_query'             => array(
+            array(
                 'key'     => 'wts_community_sync_done',
                 'compare' => 'NOT EXISTS',
-            ],
-        ],
-    ]);
+            ),
+        ),
+    ) );
 
     if ( ! $q->have_posts() ) {
         echo '<div class="notice notice-success"><p>All properties have been processed!</p></div>';
@@ -139,16 +135,33 @@ function wts_run_community_sync_batch() {
     echo '<div class="notice notice-info"><p>Click again to process another batch.</p></div>';
     echo '<h2>Batch Results</h2><ul>';
 
-    foreach ( $q->posts as $post ) {
-        $post_id = $post->ID;
-        $title   = $post->post_title;
+    foreach ( $q->posts as $post_id ) {
 
-        // Step 1: Try the known subdivision keys first
+        $title = get_the_title( $post_id );
+
+        // If this property already has a community-selection set, just mark done and skip.
+        $current_selection = get_post_meta( $post_id, 'es_property_community-selection', true );
+        if ( $current_selection !== '' && $current_selection !== '__none__' ) {
+            echo '<li><strong>' . esc_html( $title ) . '</strong>: already has community-selection (<code>'
+                 . esc_html( $current_selection ) . '</code>). Skipped.</li>';
+
+            update_post_meta( $post_id, 'wts_community_sync_done', 1 );
+            continue;
+        }
+
+        /**
+         * Step 1: Try the known subdivision keys only.
+         * This avoids an expensive get_post_meta() over *all* keys.
+         */
         $subdivision = '';
 
-        $candidates = [ 'subdivisionname', 'SubdivisionName' ];
+        $candidate_keys = array(
+            'es_property_subdivisionname', // Estatik-style meta
+            'subdivisionname',             // plain key
+            'SubdivisionName',             // possible MLS import variation
+        );
 
-        foreach ( $candidates as $key ) {
+        foreach ( $candidate_keys as $key ) {
             $val = trim( get_post_meta( $post_id, $key, true ) );
             if ( $val !== '' ) {
                 $subdivision = $val;
@@ -156,28 +169,9 @@ function wts_run_community_sync_batch() {
             }
         }
 
-        // Step 2: If still empty, scan all meta keys that contain "subdivision"
-        if ( $subdivision === '' ) {
-            $all_meta = get_post_meta( $post_id );
-            foreach ( $all_meta as $meta_key => $values ) {
-                if ( stripos( $meta_key, 'subdivision' ) === false ) {
-                    continue;
-                }
-
-                $maybe = is_array( $values )
-                    ? trim( (string) end( $values ) )
-                    : trim( (string) $values );
-
-                if ( $maybe !== '' ) {
-                    $subdivision = $maybe;
-                    break;
-                }
-            }
-        }
-
+        // If still empty, we give up (no more "scan everything" fallback).
         if ( $subdivision === '' ) {
             echo '<li><strong>' . esc_html( $title ) . '</strong>: no subdivision assigned. Skipped.</li>';
-            // Mark as processed so we don’t keep hitting it
             update_post_meta( $post_id, 'wts_community_sync_done', 1 );
             continue;
         }
