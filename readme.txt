@@ -1,5 +1,8 @@
 == Changelog ==
 
+1.3.4 – 11-20-2025
+	•	Reduced number of properties processed from ten to five in hopes to mitigate server timeout issues.
+
 1.3.3 – 11-20-2025
 	•	Changed building and community shortcode functions to mitigate critical errors with existing functions.
 

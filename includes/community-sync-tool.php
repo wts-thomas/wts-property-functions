@@ -24,7 +24,7 @@ function wts_render_community_sync_tool() {
         <h1>Community Sync Tool</h1>
 
         <p>
-            Click below to process <strong>10 Properties at a time</strong>.
+            Click below to process <strong>5 Properties at a time</strong>.
             This fills the <code>community-selection</code> field when the
             subdivision matches any Community Title or Alternate Title
             (case-insensitive). Each property is only processed once.
@@ -34,7 +34,7 @@ function wts_render_community_sync_tool() {
             <?php wp_nonce_field( 'wts_run_sync', 'wts_sync_nonce' ); ?>
             <p>
                 <input type="submit" class="button button-primary"
-                       value="Process Next 10 Properties">
+                       value="Process Next 5 Properties">
             </p>
         </form>
 
@@ -49,7 +49,7 @@ function wts_render_community_sync_tool() {
 }
 
 /**
- * Batch processor: Updates 10 properties per run
+ * Batch processor: Updates properties per run
  */
 function wts_run_community_sync_batch() {
 
@@ -96,13 +96,13 @@ function wts_run_community_sync_batch() {
         }
     }
 
-    // Find up to 10 properties where:
+    // Find properties where:
     //  - es_property_community-selection is empty/__none__/missing
     //  - AND we have NOT already processed them (no wts_community_sync_done flag)
     $q = new WP_Query([
         'post_type'      => 'properties',
         'post_status'    => 'publish',
-        'posts_per_page' => 10,
+        'posts_per_page' => 5,
         'meta_query'     => [
             'relation' => 'AND',
             // Community-selection is unset/empty
