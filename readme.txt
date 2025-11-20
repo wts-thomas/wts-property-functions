@@ -1,5 +1,8 @@
 == Changelog ==
 
+1.3.3 – 11-20-2025
+	•	Changed building and community shortcode functions to mitigate critical errors with existing functions.
+
 1.3.0 – 11-18-2025
 	•	Added Builder Selection dropdown within the Property post type.
 	•	Automated Builder dropdown population, including alternate names (via ACF field cf_legalname_alternate_title).

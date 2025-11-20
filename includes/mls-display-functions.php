@@ -7,6 +7,28 @@ function custom_esc_attr($input) {
     return str_replace('&amp;', '&', $safe_input);
 }
 
+
+/* SHORTCODE TO DISPLAY JUST THE STREET ADDRESS
+________________________________________________________________________*/
+
+function display_community_address( $atts ) {
+    $args = shortcode_atts( array(
+        'post_id' => get_the_ID(),
+    ), $atts );
+    
+    $address = get_field( 'map_community-location', $args['post_id'] );
+    
+    if ( ! empty( $address['address'] ) ) {
+        $address_parts = explode( ',', $address['address'] );
+        $street_address = trim( $address_parts[0] );
+        return '<h6>' . esc_html( $street_address ) . '</h6>';
+    }
+    
+    return '';
+}
+add_shortcode( 'community_address', 'display_community_address' );
+
+
 /*  MLS PLUGIN - ESTATIK
 ________________________________________________________________________*/
 

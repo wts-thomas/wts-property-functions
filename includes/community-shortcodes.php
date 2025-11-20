@@ -1,8 +1,8 @@
 <?php
 if ( ! defined( 'ABSPATH' ) ) exit;
 
-if ( ! function_exists( 'dynamic_community_listings_shortcode' ) ) {
-    function dynamic_community_listings_shortcode( $atts ) {
+if ( ! function_exists( 'plugin_community_listings_shortcode' ) ) {
+    function plugin_community_listings_shortcode( $atts ) {
 
         $post_title = get_the_title();
 
@@ -24,5 +24,5 @@ if ( ! function_exists( 'dynamic_community_listings_shortcode' ) ) {
         return do_shortcode( $shortcode );
     }
 
-    add_shortcode( 'dynamic_community_listings', 'dynamic_community_listings_shortcode' );
+    add_shortcode( 'plugin_community_listings', 'plugin_community_listings_shortcode' );
 }
